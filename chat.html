@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Shizuku</title>
+    <link rel="icon" href="data:,">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'ZCOOL XiaoWei', 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            position: relative;
+            height: 100vh;
+            background: linear-gradient(135deg, #e6f2ff 0%, #cce5ff 100%);
+            font-size: 18px;
+        }
+        
+        /* 动画背景 */
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: -85px;
+            width: calc(100% + 170px);
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                #cce5ff,
+                #cce5ff 30px,
+                #e6f2ff 30px,
+                #e6f2ff 60px
+            );
+            animation: slideRight 3s linear infinite;
+            z-index: -2;
+        }
+        
+        @keyframes slideRight {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(84.853px);
+            }
+        }
+        
+        /* 聊天容器 */
+        .chat-container {
+            position: absolute;
+            left: calc(55% + 100px);
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%;
+            max-width: 650px;
+            height: 80vh;
+            background: linear-gradient(135deg, rgba(255, 240, 245, 0.95) 0%, rgba(255, 220, 235, 0.95) 100%);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 120px rgba(255, 182, 193, 0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            filter: url('#sketch-border');
+        }
+        
+        /* 聊天头部 */
+        .chat-header {
+            background: linear-gradient(135deg, #ff91a4 0%, #ffa0b4 50%, #ffb1c1 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        
+        /* 消息区域 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* 消息样式 */
+        .message {
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease-out;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.user {
+            text-align: right;
+            flex-direction: row-reverse;
+        }
+        
+        .message.ai {
+            text-align: left;
+            flex-direction: row;
+        }
+        
+        /* AI头像 */
+        .ai-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: white;
+            padding: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 15px rgba(0, 0, 0, 0.1);
+            border: 3px solid #333;
+            align-self: flex-start;
+            margin-top: 0;
+            position: relative;
+        }
+        
+        /* 用户头像 */
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: white;
+            padding: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 15px rgba(0, 0, 0, 0.1);
+            border: 3px solid #7b8cef;
+            align-self: flex-start;
+            margin-top: 0;
+            position: relative;
+        }
+        
+        .ai-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .user-avatar img {
+            width: 130%;
+            height: 130%;
+            object-fit: cover;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .ai-avatar.rotating img {
+            animation: rotate 2s linear infinite;
+        }
+        
+        .ai-avatar.stopping img {
+            animation: rotateToOriginal 1s ease-out forwards;
+        }
+        
+        @keyframes rotate {
+            from {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+        
+        @keyframes rotateToOriginal {
+            from {
+                transform: translate(-50%, -50%) rotate(var(--current-rotation));
+            }
+            to {
+                transform: translate(-50%, -50%) rotate(calc(var(--current-rotation) + var(--rotation-diff)));
+            }
+        }
+        
+        .message-bubble {
+            display: inline-block;
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+            filter: url('#sketch-border');
+        }
+        
+        .user .message-bubble {
+            background: linear-gradient(135deg, #7b8cef 0%, #947eb9 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 5px 15px rgba(139, 156, 255, 0.4), 0 0 25px rgba(164, 142, 201, 0.3);
+        }
+        
+        .ai .message-bubble {
+            background: white;
+            color: #333;
+            border: 2px solid #f8b5d6;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 5px 15px rgba(248, 181, 214, 0.4), 0 0 25px rgba(255, 182, 193, 0.3);
+        }
+        
+        .typing-indicator {
+            display: inline-block;
+            padding: 12px 18px;
+        }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #764ba2;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        /* 输入区域 */
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 2px solid #f0f0f0;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 18px;
+            outline: none;
+            transition: border-color 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message-input:focus {
+            border-color: #764ba2;
+        }
+        
+        .send-button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #7b8cef 0%, #947eb9 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(139, 156, 255, 0.3);
+        }
+        
+        .send-button:hover {
+            transform: scale(1.05);
+        }
+        
+        .send-button:active {
+            transform: scale(0.95);
+        }
+        
+        /* 手绘效果 */
+        svg {
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+        
+        /* Token计数器 */
+        .token-counter {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15), 0 0 20px rgba(255, 105, 180, 0.2);
+            font-size: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 10000;
+            border: 2px solid #ff905d;
+            min-width: 120px;
+            filter: url('#sketch-border');
+        }
+        
+        .token-counter::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #ff905d;
+            border-radius: 15px;
+            z-index: -1;
+            filter: url('#sketch-border');
+        }
+        
+        .token-counter span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        /* 滚动条样式 */
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .messages-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        .messages-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #7b8cef 0%, #947eb9 100%);
+            border-radius: 4px;
+        }
+        
+        /* 对话气泡 */
+        .chat-bubble {
+            position: fixed;
+            left: 410px;
+            top: calc(50% - 380px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid #ff69b4;
+            border-radius: 20px;
+            padding: 15px 20px;
+            font-size: 20px;
+            font-family: 'ZCOOL XiaoWei', sans-serif;
+            color: #333;
+            opacity: 0;
+            transform: scale(0.8) translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            z-index: 10000;
+            max-width: 250px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2), 0 0 30px rgba(255, 105, 180, 0.3);
+            filter: url('#sketch-border');
+        }
+        
+        .chat-bubble::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 3px solid #ff69b4;
+            border-radius: 20px;
+            z-index: -1;
+            filter: url('#sketch-border');
+        }
+        
+        .chat-bubble.show {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+        
+        .chat-bubble-arrow {
+            position: absolute;
+            bottom: -10px;
+            left: 20px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid #ff69b4;
+        }
+        
+        .chat-bubble-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: -10px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid rgba(255, 255, 255, 0.95);
+        }
+        
+        /* 全屏特效容器 */
+        .effects-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        
+        /* 特效粒子基础样式 */
+        .effect-particle {
+            position: absolute;
+            pointer-events: none;
+            font-size: 30px;
+            animation-fill-mode: forwards;
+        }
+        
+        /* 下落动画 */
+        @keyframes fall {
+            0% {
+                opacity: 0;
+                transform: translateY(0) rotate(0deg);
+            }
+            5% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+                transform: translateY(50vh) rotate(180deg);
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- SVG 滤镜定义 -->
+    <svg>
+        <defs>
+            <filter id="handDrawn">
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3" result="turbulence" seed="1" />
+                <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="2" />
+            </filter>
+            <filter id="sketch">
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="2" result="noise" seed="5" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" />
+                <feComponentTransfer>
+                    <feFuncA type="discrete" tableValues="0 .5 .5 .5 1" />
+                </feComponentTransfer>
+            </filter>
+            <filter id="sketch-border">
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="2" result="noise" seed="5" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" />
+            </filter>
+        </defs>
+    </svg>
+    
+    <!-- 动画背景 -->
+    <div class="animated-bg"></div>
+    
+    <!-- 全屏特效容器 -->
+    <div class="effects-container" id="effectsContainer"></div>
+    
+    <!-- 对话气泡 -->
+    <div class="chat-bubble" id="chatBubble">
+        <div class="chat-bubble-arrow"></div>
+    </div>
+    
+    <!-- Token计数器 -->
+    <div class="token-counter" id="tokenCounter">
+        <span>↗️&nbsp;&nbsp;<span id="inputTokens">0</span> tokens</span>
+        <span>↙️&nbsp;&nbsp;<span id="outputTokens">0</span> tokens</span>
+    </div>
+    
+    <!-- 聊天容器 -->
+    <div class="chat-container">
+        <div class="chat-header">
+            AI Chat with Shizuku
+        </div>
+        
+        <div class="messages-container" id="messagesContainer">
+            <!-- 初始欢迎消息 -->
+            <div class="message ai">
+                <div class="ai-avatar">
+                    <img src="ollama.png" alt="AI">
+                </div>
+                <div class="message-bubble">
+                    哼~ 你终于来了啊，笨蛋！我...我才不是在等你呢！只是刚好在这里而已... (｡•́︿•̀｡)
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input 
+                type="text" 
+                class="message-input" 
+                id="messageInput" 
+                placeholder="输入消息..." 
+                onkeypress="handleKeyPress(event)"
+            >
+            <button class="send-button" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+    
+    <!-- Live2D Widget -->
+    <script src="https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js"></script>
+    <script>
+        // 初始化 Live2D - 使用 Shizuku
+        L2Dwidget.init({
+            pluginRootPath: 'https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/',
+            pluginJsPath: 'lib/',
+            pluginModelPath: 'assets/',
+            tagMode: false,
+            debug: false,
+            model: {
+                jsonPath: 'https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json',
+                scale: 0.5
+            },
+            display: {
+                position: 'left',
+                width: 900,
+                height: 900,
+                hOffset: 100,
+                vOffset: 0
+            },
+            mobile: {
+                show: true,
+                scale: 0.8
+            },
+            react: {
+                opacityDefault: 0.9,
+                opacityOnHover: 0.2
+            }
+        });
+        
+        // 情绪对话列表
+        let cuteMessages = [];
+        let randomEmotions = [];
+        
+        // 加载情绪文本
+        async function loadEmotions() {
+            try {
+                const response = await fetch('/api/emotions');
+                const text = await response.text();
+                const allEmotions = text.split('\n').filter(line => line.trim());
+                
+                // 随机分配到两个数组
+                allEmotions.forEach(emotion => {
+                    if (Math.random() < 0.5) {
+                        cuteMessages.push(emotion);
+                    } else {
+                        randomEmotions.push(emotion);
+                    }
+                });
+                
+                // 确保两个数组都有内容
+                if (cuteMessages.length === 0) cuteMessages = allEmotions.slice(0, Math.floor(allEmotions.length / 2));
+                if (randomEmotions.length === 0) randomEmotions = allEmotions.slice(Math.floor(allEmotions.length / 2));
+                
+                console.log(`Loaded ${cuteMessages.length} cute messages and ${randomEmotions.length} random emotions`);
+            } catch (error) {
+                console.error('Failed to load emotions:', error);
+                // 使用默认值
+                cuteMessages = ["哼，别戳我啦！很痒的... (｡･ω･｡)💕", "笨蛋！有什么想问的就快说啊！😤"];
+                randomEmotions = ["呜哇...好想吃草莓蛋糕... 🍰 才不是嘴馋呢！", "今天的天气真好呢~ ☀️"];
+            }
+        }
+        
+        // 页面加载时加载情绪
+        loadEmotions();
+        
+        let messageTimeout;
+        let isTyping = false;
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        let emotionInterval;
+        let lonelyTimeout;
+        let lastInteractionTime = Date.now();
+        let chatHistory = [];
+        
+        // 添加点击事件到 Live2D
+        setTimeout(() => {
+            // 为Live2D创建一个正确定位的点击区域
+            const clickArea = document.createElement('div');
+            clickArea.style.cssText = `
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 800px;
+                height: 100vh;
+                z-index: 999;
+                cursor: pointer;
+            `;
+            clickArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showCuteMessage();
+                // 触发Live2D动作
+                triggerLive2DAction();
+            });
+            document.body.appendChild(clickArea);
+            
+            // 同时给canvas添加样式
+            const live2dCanvas = document.querySelector('#live2d');
+            if (live2dCanvas) {
+                live2dCanvas.style.pointerEvents = 'none';
+            }
+            
+            // 启动随机动作
+            startRandomActions();
+        }, 3000);
+        
+        // 触发Live2D动作
+        function triggerLive2DAction() {
+            const canvas = document.querySelector('#live2d');
+            if (canvas) {
+                // 模拟不同位置的点击以触发不同动作
+                const positions = [
+                    { x: canvas.width * 0.5, y: canvas.height * 0.3 }, // 头部
+                    { x: canvas.width * 0.5, y: canvas.height * 0.5 }, // 身体
+                    { x: canvas.width * 0.3, y: canvas.height * 0.6 }, // 左侧
+                    { x: canvas.width * 0.7, y: canvas.height * 0.6 }  // 右侧
+                ];
+                const pos = positions[Math.floor(Math.random() * positions.length)];
+                
+                // 创建并触发点击事件
+                const event = new MouseEvent('click', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: canvas.offsetLeft + pos.x,
+                    clientY: canvas.offsetTop + pos.y
+                });
+                canvas.dispatchEvent(event);
+            }
+        }
+        
+        // 启动随机动作
+        function startRandomActions() {
+            // 每15-30秒触发一次随机动作
+            setInterval(() => {
+                if (!isTyping && Math.random() < 0.4) { // 40%概率
+                    triggerLive2DAction();
+                }
+            }, 15000 + Math.random() * 15000);
+        }
+        
+        // 特效触发关键词映射
+        const effectKeywords = {
+            birthday: {
+                keywords: ['生日', '生日快乐', 'birthday', 'happy birthday'],
+                emojis: ['🎂', '🎈', '🎉', '🎊', '🎁'],
+                animation: 'fall',
+                duration: 8000
+            },
+            congrats: {
+                keywords: ['恭喜', '祝贺', '太棒了', '666', '牛', '厉害', '赞', '优秀'],
+                emojis: ['🎊', '✨', '⭐', '👍', '💯'],
+                animation: 'fall',
+                duration: 8000
+            },
+            fireworks: {
+                keywords: ['烟花', '放烟花', '新年', '过年', 'fireworks'],
+                emojis: ['🎆', '🎇', '✨'],
+                animation: 'fall',
+                duration: 8000
+            },
+            love: {
+                keywords: ['爱你', '么么哒', '亲亲', '爱', 'love', '❤️', '💕'],
+                emojis: ['❤️', '💕', '😘', '💖', '💗'],
+                animation: 'fall',
+                duration: 8000
+            },
+            cry: {
+                keywords: ['哭', '呜呜', '难过', '伤心', '流泪', '😭'],
+                emojis: ['😭', '💧', '😢', '😥'],
+                animation: 'fall',
+                duration: 8000
+            },
+            angry: {
+                keywords: ['生气', '气死了', '愤怒', '火大', '😤', '💢'],
+                emojis: ['😤', '💢', '😡', '🔥'],
+                animation: 'fall',
+                duration: 8000
+            },
+            sick: {
+                keywords: ['恶心', '呕', '吐', '想吐', '🤮'],
+                emojis: ['🤮', '🤢', '😵‍💫'],
+                animation: 'fall',
+                duration: 8000
+            },
+            poop: {
+                keywords: ['屎', '拉屎', '便便', '💩', 'poop'],
+                emojis: ['💩'],
+                animation: 'fall',
+                duration: 8000
+            },
+            explode: {
+                keywords: ['爆炸', 'boom', '炸了', '💥'],
+                emojis: ['💥', '🔥', '💣'],
+                animation: 'fall',
+                duration: 8000
+            },
+            money: {
+                keywords: ['钱', '发财', '红包', '暴富', '💰'],
+                emojis: ['💰', '💵', '💴', '💶', '💷', '🧧'],
+                animation: 'fall',
+                duration: 8000
+            },
+            music: {
+                keywords: ['音乐', '唱歌', '音符', '🎵'],
+                emojis: ['🎵', '🎶', '🎼', '🎤'],
+                animation: 'fall',
+                duration: 8000
+            },
+            laugh: {
+                keywords: ['哈哈', '笑死', '开心', '快乐', '😂', '🤣'],
+                emojis: ['😂', '🤣', '😄', '😆'],
+                animation: 'fall',
+                duration: 8000
+            },
+            cheer: {
+                keywords: ['加油', '冲', 'fighting', '💪'],
+                emojis: ['💪', '🔥', '⚡', '🚀'],
+                animation: 'fall',
+                duration: 8000
+            },
+            applause: {
+                keywords: ['鼓掌', '掌声', '👏'],
+                emojis: ['👏', '✨'],
+                animation: 'fall',
+                duration: 8000
+            },
+            rain: {
+                keywords: ['下雨', '雨', '☔'],
+                emojis: ['🌧️', '☔', '💧'],
+                animation: 'fall',
+                duration: 8000
+            },
+            snow: {
+                keywords: ['下雪', '雪花', '雪', '❄️'],
+                emojis: ['❄️', '⛄', '🌨️'],
+                animation: 'fall',
+                duration: 8000
+            }
+        };
+        
+        // 最近触发时间记录
+        const lastEffectTime = {};
+        
+        // 检查并触发特效
+        function checkAndTriggerEffect(text) {
+            const now = Date.now();
+            
+            for (const [effectName, config] of Object.entries(effectKeywords)) {
+                // 检查是否在冷却时间内（10秒）
+                if (lastEffectTime[effectName] && now - lastEffectTime[effectName] < 10000) {
+                    continue;
+                }
+                
+                // 检查关键词
+                const hasKeyword = config.keywords.some(keyword => 
+                    text.toLowerCase().includes(keyword.toLowerCase())
+                );
+                
+                if (hasKeyword) {
+                    lastEffectTime[effectName] = now;
+                    triggerEffect(effectName, config);
+                    break; // 一次只触发一个特效
+                }
+            }
+        }
+        
+        // 触发特效
+        function triggerEffect(effectName, config) {
+            const container = document.getElementById('effectsContainer');
+            container.innerHTML = ''; // 清除之前的特效
+            
+            // 只使用下落效果
+            createFallingEffect(config.emojis, config.duration);
+        }
+        
+        // 创建下落特效
+        function createFallingEffect(emojis, duration) {
+            const container = document.getElementById('effectsContainer');
+            const particleCount = 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                setTimeout(() => {
+                    const particle = document.createElement('div');
+                    particle.className = 'effect-particle';
+                    particle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.top = '-50px';
+                    particle.style.fontSize = (20 + Math.random() * 20) + 'px';
+                    particle.style.animation = `fall 8s linear`;
+                    
+                    container.appendChild(particle);
+                    
+                    particle.addEventListener('animationend', () => particle.remove());
+                }, i * 100);
+            }
+            
+            setTimeout(() => container.innerHTML = '', duration);
+        }
+        
+        // 显示可爱对话
+        function showCuteMessage() {
+            const bubble = document.getElementById('chatBubble');
+            const randomMessage = cuteMessages[Math.floor(Math.random() * cuteMessages.length)];
+            
+            // 更新内容，但保留箭头
+            const arrow = bubble.querySelector('.chat-bubble-arrow');
+            bubble.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('chat-bubble-arrow'))) {
+                    node.remove();
+                }
+            });
+            bubble.insertAdjacentText('afterbegin', randomMessage);
+            bubble.classList.add('show');
+            
+            if (messageTimeout) {
+                clearTimeout(messageTimeout);
+            }
+            
+            messageTimeout = setTimeout(() => {
+                bubble.classList.remove('show');
+            }, 6000);
+        }
+        
+        // 显示随机情绪
+        function showRandomEmotion() {
+            if (randomEmotions.length === 0) return;
+            
+            const bubble = document.getElementById('chatBubble');
+            const randomMessage = randomEmotions[Math.floor(Math.random() * randomEmotions.length)];
+            
+            // 更新内容，但保留箭头
+            const arrow = bubble.querySelector('.chat-bubble-arrow');
+            bubble.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('chat-bubble-arrow'))) {
+                    node.remove();
+                }
+            });
+            bubble.insertAdjacentText('afterbegin', randomMessage);
+            bubble.classList.add('show');
+            
+            if (messageTimeout) {
+                clearTimeout(messageTimeout);
+            }
+            
+            messageTimeout = setTimeout(() => {
+                bubble.classList.remove('show');
+            }, 6000);
+        }
+        
+        // 启动随机情绪显示
+        setTimeout(() => {
+            emotionInterval = setInterval(() => {
+                if (!isTyping && Math.random() < 0.3) { // 30%概率显示
+                    showRandomEmotion();
+                }
+            }, 15000); // 每15秒检查一次
+        }, 5000); // 5秒后开始
+        
+        // 处理键盘事件
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || isTyping) return;
+            
+            // 更新最后交互时间
+            lastInteractionTime = Date.now();
+            resetLonelyTimer();
+            
+            // 清空输入框
+            input.value = '';
+            
+            // 添加用户消息
+            addMessage(message, 'user');
+            
+            // 检查并触发特效
+            checkAndTriggerEffect(message);
+            
+            // 触发Live2D动作
+            triggerLive2DAction();
+            
+            // 更新输入token数（简单估算：每4个字符约1个token）
+            totalInputTokens += Math.ceil(message.length / 4);
+            updateTokenDisplay();
+            
+            // 显示正在输入
+            showTypingIndicator();
+            isTyping = true;
+            
+            // 添加到历史记录
+            chatHistory.push({ role: 'user', content: message });
+            
+            // 保持最近20轮对话
+            if (chatHistory.length > 40) { // 40条消息 = 20轮对话
+                chatHistory = chatHistory.slice(-40);
+            }
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message,
+                        history: chatHistory.slice(0, -1) // 不包含刚刚添加的用户消息
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('请求失败');
+                }
+                
+                // 创建 EventSource 来接收流式响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let aiMessage = '';
+                let messageDiv = null;
+                
+                hideTypingIndicator();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        // 完成后更新输出token总数
+                        if (aiMessage) {
+                            totalOutputTokens += Math.ceil(aiMessage.length / 4);
+                            updateTokenDisplay();
+                            
+                            // 添加AI回复到历史记录
+                            chatHistory.push({ role: 'assistant', content: aiMessage });
+                            
+                            // 检查AI回复中的特效关键词
+                            checkAndTriggerEffect(aiMessage);
+                        }
+                        
+                        // 旋转到原位后停止
+                        if (messageDiv && messageDiv.avatarDiv) {
+                            const img = messageDiv.avatarDiv.querySelector('img');
+                            if (img) {
+                                // 获取当前旋转角度
+                                const computedStyle = window.getComputedStyle(img);
+                                const transform = computedStyle.transform;
+                                let currentRotation = 0;
+                                if (transform && transform !== 'none') {
+                                    const values = transform.split('(')[1].split(')')[0].split(',');
+                                    const a = values[0];
+                                    const b = values[1];
+                                    currentRotation = Math.atan2(b, a) * (180 / Math.PI);
+                                }
+                                
+                                // 计算需要旋转的角度以达到最近的360度倍数
+                                if (currentRotation < 0) currentRotation += 360;
+                                const rotationDiff = 360 - (currentRotation % 360);
+                                
+                                // 设置 CSS 变量
+                                img.style.setProperty('--current-rotation', currentRotation + 'deg');
+                                img.style.setProperty('--rotation-diff', rotationDiff + 'deg');
+                                messageDiv.avatarDiv.classList.remove('rotating');
+                                messageDiv.avatarDiv.classList.add('stopping');
+                                
+                                // 动画结束后移除stopping类
+                                setTimeout(() => {
+                                    messageDiv.avatarDiv.classList.remove('stopping');
+                                    img.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+                                }, 1000);
+                            }
+                        }
+                        break;
+                    }
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.content) {
+                                    aiMessage += data.content;
+                                    if (!messageDiv) {
+                                        messageDiv = addMessage(aiMessage, 'ai');
+                                        // AI开始回复时触发动作
+                                        triggerLive2DAction();
+                                    } else {
+                                        updateMessage(messageDiv, aiMessage);
+                                    }
+                                }
+                                if (data.done) {
+                                    // 完成后更新输出token总数
+                                    if (aiMessage) {
+                                        totalOutputTokens += Math.ceil(aiMessage.length / 4);
+                                        updateTokenDisplay();
+                                        
+                                        // 添加AI回复到历史记录
+                                        chatHistory.push({ role: 'assistant', content: aiMessage });
+                                        
+                                        // 检查AI回复中的特效关键词
+                                        checkAndTriggerEffect(aiMessage);
+                                    }
+                                    
+                                    // 旋转到原位后停止
+                                    if (messageDiv && messageDiv.avatarDiv) {
+                                        const img = messageDiv.avatarDiv.querySelector('img');
+                                        if (img) {
+                                            // 获取当前旋转角度
+                                            const computedStyle = window.getComputedStyle(img);
+                                            const transform = computedStyle.transform;
+                                            let currentRotation = 0;
+                                            if (transform && transform !== 'none') {
+                                                const values = transform.split('(')[1].split(')')[0].split(',');
+                                                const a = values[0];
+                                                const b = values[1];
+                                                currentRotation = Math.atan2(b, a) * (180 / Math.PI);
+                                            }
+                                            
+                                            // 计算需要旋转的角度以达到最近的360度倍数
+                                            if (currentRotation < 0) currentRotation += 360;
+                                            const rotationDiff = 360 - (currentRotation % 360);
+                                            
+                                            // 设置 CSS 变量
+                                            img.style.setProperty('--current-rotation', currentRotation + 'deg');
+                                            img.style.setProperty('--rotation-diff', rotationDiff + 'deg');
+                                            messageDiv.avatarDiv.classList.remove('rotating');
+                                            messageDiv.avatarDiv.classList.add('stopping');
+                                            
+                                            // 动画结束后移除stopping类
+                                            setTimeout(() => {
+                                                messageDiv.avatarDiv.classList.remove('stopping');
+                                                img.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+                                            }, 1000);
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                // 忽略解析错误
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('哼！出错了...但这不是我的错！是服务器的问题啦！(｡•́︿•̀｡)', 'ai');
+            } finally {
+                isTyping = false;
+            }
+        }
+        
+        // 添加消息
+        function addMessage(text, sender) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            if (sender === 'ai') {
+                // 添加AI头像
+                const avatarDiv = document.createElement('div');
+                avatarDiv.className = 'ai-avatar rotating';
+                const avatarImg = document.createElement('img');
+                avatarImg.src = 'ollama.png';
+                avatarImg.alt = 'AI';
+                avatarDiv.appendChild(avatarImg);
+                messageDiv.appendChild(avatarDiv);
+                
+                // 存储头像引用以便后续停止旋转
+                messageDiv.avatarDiv = avatarDiv;
+            } else if (sender === 'user') {
+                // 添加用户头像
+                const avatarDiv = document.createElement('div');
+                avatarDiv.className = 'user-avatar';
+                const avatarImg = document.createElement('img');
+                avatarImg.src = 'ollama_user.png';
+                avatarImg.alt = 'User';
+                avatarDiv.appendChild(avatarImg);
+                messageDiv.appendChild(avatarDiv);
+            }
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            bubbleDiv.textContent = text;
+            
+            messageDiv.appendChild(bubbleDiv);
+            messagesContainer.appendChild(messageDiv);
+            
+            // 滚动到底部
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            return messageDiv;
+        }
+        
+        // 更新消息内容
+        function updateMessage(messageDiv, text) {
+            const bubble = messageDiv.querySelector('.message-bubble');
+            if (bubble) {
+                bubble.textContent = text;
+            }
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // 显示正在输入指示器
+        function showTypingIndicator() {
+            const messagesContainer = document.getElementById('messagesContainer');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message ai';
+            typingDiv.id = 'typingIndicator';
+            
+            const indicatorDiv = document.createElement('div');
+            indicatorDiv.className = 'typing-indicator';
+            indicatorDiv.innerHTML = '<span></span><span></span><span></span>';
+            
+            typingDiv.appendChild(indicatorDiv);
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // 隐藏正在输入指示器
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+        
+        // 更新Token显示
+        function updateTokenDisplay() {
+            document.getElementById('inputTokens').textContent = totalInputTokens;
+            document.getElementById('outputTokens').textContent = totalOutputTokens;
+        }
+        
+        // 孤独消息列表
+        const lonelyMessages = [
+            "喂...你还在吗？是不是不喜欢我了... (´･ω･`)",
+            "怎么不理我了啊...难道我说错什么了吗？😢",
+            "哼！不要抛弃我啊...虽然我经常说你笨蛋... (｡•́︿•̀｡)",
+            "喂喂！你去哪了？不要丢下我一个人啊！💔",
+            "是不是觉得我很烦啊...对不起嘛... (╥﹏╥)",
+            "呜...好寂寞...你快回来陪我聊天啦！",
+            "笨蛋！就算我傲娇也不能这样无视我啊！😤",
+            "你...你是不是去找别的AI聊天了？(＞﹏＜)",
+            "我...我才不是想你了呢！只是有点无聊而已... 💭",
+            "喂！再不理我的话，我真的要生气了哦！(｡•̀ᴗ-)✧"
+        ];
+        
+        // 发送孤独消息
+        async function sendLonelyMessage() {
+            if (isTyping) return;
+            
+            const randomMessage = lonelyMessages[Math.floor(Math.random() * lonelyMessages.length)];
+            
+            // 显示正在输入
+            showTypingIndicator();
+            isTyping = true;
+            
+            // 模拟AI输入延迟
+            setTimeout(async () => {
+                hideTypingIndicator();
+                
+                // 添加AI消息
+                const messageDiv = addMessage(randomMessage, 'ai');
+                
+                // 触发Live2D动作
+                triggerLive2DAction();
+                
+                // 更新token计数
+                totalOutputTokens += Math.ceil(randomMessage.length / 4);
+                updateTokenDisplay();
+                
+                // 停止旋转动画
+                if (messageDiv && messageDiv.avatarDiv) {
+                    const img = messageDiv.avatarDiv.querySelector('img');
+                    if (img) {
+                        messageDiv.avatarDiv.classList.remove('rotating');
+                        img.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+                    }
+                }
+                
+                isTyping = false;
+                
+                // 重置计时器
+                resetLonelyTimer();
+            }, 1500);
+        }
+        
+        // 重置孤独计时器
+        function resetLonelyTimer() {
+            if (lonelyTimeout) {
+                clearTimeout(lonelyTimeout);
+            }
+            
+            lonelyTimeout = setTimeout(() => {
+                sendLonelyMessage();
+            }, 60000); // 60秒（1分钟）
+        }
+        
+        // 启动孤独计时器
+        resetLonelyTimer();
+    </script>
+</body>
+</html>
